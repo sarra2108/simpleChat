@@ -26,9 +26,9 @@ public class ChatClient extends AbstractClient
    * The interface type variable.  It allows the implementation of 
    * the display method in the client.
    */
-  ChatIF clientUI; 
-
-  
+  ChatIF clientUI;
+Boolean isLoggedIn=false;
+ String loginID;
   //Constructors ****************************************************
   
   /**
@@ -39,12 +39,14 @@ public class ChatClient extends AbstractClient
    * @param clientUI The interface type variable.
    */
   
-  public ChatClient(String host, int port, ChatIF clientUI) 
+  public ChatClient(String loginID,String host, int port, ChatIF clientUI)
     throws IOException 
   {
     super(host, port); //Call the superclass constructor
     this.clientUI = clientUI;
+    this.loginID=loginID;
     openConnection();
+
   }
 
   
@@ -58,6 +60,8 @@ public class ChatClient extends AbstractClient
   public void handleMessageFromServer(Object msg) 
   {
     clientUI.display(msg.toString());
+
+
     
     
   }
@@ -71,8 +75,13 @@ public class ChatClient extends AbstractClient
   {
     try
     {
-      sendToServer(message);
-    }
+
+     if(message.startsWith("#")){
+        handleCommande(message);
+     }
+      else{
+      sendToServer(message);}}
+
     catch(IOException e)
     {
       clientUI.display
@@ -80,7 +89,58 @@ public class ChatClient extends AbstractClient
       quit();
     }
   }
-  
+  private void handleCommande(String command) throws IOException {
+    String[] args = command.split(" ");
+    if (command.equals("#quit")){quit();}
+    else if (command.equals("#logoff")){
+
+      if (isConnected()) {
+
+        closeConnection();
+      }
+
+    }
+
+    else if (command.equals("#login")){
+      if (!isConnected() ) {
+        openConnection();
+
+      }
+      else{
+
+        clientUI.display("ERROR_Already connected to the server.");
+      }
+    }
+    else if(command.equals("#sethost") ){
+      if (!isConnected()) {
+        if (args.length >= 2) {
+          String newHost = args[1];
+          setHost(newHost);
+        } else {
+          clientUI.display("Usage: #sethost <host>");
+        }
+      } else {
+        clientUI.display("Cannot set host while connected to the server.");
+      }}
+       else if(command.equals("#setport") ){
+        if (!isConnected()) {
+          if (args.length >= 2) {
+            try {
+              int newPort = Integer.parseInt(args[1]);
+              setPort(newPort);
+            } catch (NumberFormatException e) {
+              clientUI.display("Invalid port number.");
+            }
+          } else {
+            clientUI.display("Usage: #setport <port>");
+          }
+        } else {
+          clientUI.display("Cannot set port while connected to the server.");
+        }}
+       else if (command.equals("#gethost")){clientUI.display("Current host: " + getHost());}
+    else if (command.equals("#getport")){clientUI.display("Current port: " + getPort());}
+    }
+
   /**
    * This method terminates the client.
    */
@@ -92,6 +152,34 @@ public class ChatClient extends AbstractClient
     }
     catch(IOException e) {}
     System.exit(0);
+  }
+
+  @Override
+  protected void connectionException(Exception exception) {
+    clientUI.display("The server is shut down");
+    quit();
+
+  }
+    @Override
+  protected void connectionEstablished()  {
+        try {
+            sendToServer("#login" + loginID);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+
+
+
+  
+  @Override
+  protected void connectionClosed() {
+
+      clientUI.display("Connection closed");
+
+
+
   }
 }
 //End of ChatClient class
